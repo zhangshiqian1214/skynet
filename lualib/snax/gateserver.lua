@@ -27,6 +27,11 @@ function gateserver.closeclient(fd)
 	end
 end
 
+function gateserver.send_text(fd, text)
+	text = string.pack(">s2", text)
+	socketdriver.send(fd, text)
+end
+
 function gateserver.send_buffer(fd, buffer)
 	buffer = string.pack(">s2", buffer)
 	socketdriver.send(fd, buffer)

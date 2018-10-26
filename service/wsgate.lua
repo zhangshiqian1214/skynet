@@ -102,9 +102,12 @@ function CMD.kick(source, fd)
 	gateserver.closeclient(fd)
 end
 
---
-function CMD.send_buffer(source, fd, buffer, isText)
-	gateserver.send_buffer(fd, buffer, isText)
+function CMD.send_text(source, fd, text)
+	gateserver.send_text(fd, text)
+end
+
+function CMD.send_buffer(source, fd, buffer)
+	gateserver.send_buffer(fd, buffer)
 end
 
 function handler.command(cmd, source, ...)

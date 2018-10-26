@@ -146,14 +146,13 @@ function gateserver.closeclient(fd)
 	end
 end
 
+function gateserver.send_text(fd, text)
+	send_frame(fd, FIN_TEXT, text)
+end
+
 --默认发送binary
-function gateserver.send_buffer(fd, buffer, isText)
-	if isText then
-		send_frame(fd, FIN_TEXT, buffer)
-	else
-		send_frame(fd, FIN_BINARY, buffer)
-	end
-	
+function gateserver.send_buffer(fd, buffer)
+	send_frame(fd, FIN_BINARY, buffer)
 end
 
 function gateserver.checkwebsocket(fd, header)

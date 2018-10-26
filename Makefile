@@ -56,9 +56,9 @@ CSERVICE = snlua logger gate harbor
 LUA_CLIB = skynet \
   client \
   bson md5 sproto lpeg \
-  websocketnetpack clientwebsocket webclient \
-  cjson lfs protobuf zlib osext cipher codec iconv random snowflake unqlite lsqlite3 \
-  \
+  websocketnetpack clientwebsocket \
+  cjson lfs protobuf zlib osext random snowflake \
+#  webclient cipher codec iconv unqlite lsqlite3 \
 
 LUA_CLIB_SKYNET = \
   lua-skynet.c lua-seri.c \
