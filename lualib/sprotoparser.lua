@@ -87,7 +87,8 @@ local typedef = P {
 	TYPE = namedpat("type", P"." * name * blank0 * V"STRUCT" ),
 	SUBPROTO = Ct((C"request" + C"response") * blanks * (typename + V"STRUCT")),
 	PROTOCOL = namedpat("protocol", name * blanks * tag * blank0 * P"{" * multipat(V"SUBPROTO") * P"}"),
-	ALL = multipat(V"TYPE" + V"PROTOCOL"),
+	MODULE = namedpat("module", name * blank0 * P"{" * multipat(V"TYPE" + V"PROTOCOL") * P"}"),
+	ALL = multipat(V"TYPE" + V"PROTOCOL" + V"MODULE"),
 }
 
 local proto = blank0 * typedef * blank0
@@ -161,16 +162,33 @@ function convert.type(all, obj)
 	return result
 end
 
+function convert.module(all, obj)
+	local result = {}
+	local typename = obj[1]
+	for _, p in ipairs(obj[2]) do
+		local nesttypename = typename .. "." .. p[1]
+		p[1] = nesttypename
+		if p.type == "protocol" then
+			all.protocol[nesttypename] = convert.protocol(all, p)
+		else
+			all.type[nesttypename] = convert.type(all, p)
+		end
+	end
+end
+
 local function adjust(r)
 	local result = { type = {} , protocol = {} }
 
 	for _, obj in ipairs(r) do
 		local set = result[obj.type]
 		local name = obj[1]
-		assert(set[name] == nil , "redefined " .. name)
-		set[name] = convert[obj.type](result,obj)
+		if obj.type == "module" then
+			convert[obj.type](result,obj)
+		else
+			assert(set[name] == nil , "redefined " .. name)
+			set[name] = convert[obj.type](result,obj)
+		end
 	end
-
 	return result
 end
 
@@ -235,7 +253,6 @@ local function flattypename(r)
 			f.typename = fullname
 		end
 	end
-
 	return r
 end
 

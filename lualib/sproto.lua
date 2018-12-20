@@ -104,7 +104,6 @@ local function queryproto(self, pname)
 		self.__pcache[pname] = v
 		self.__pcache[tag]  = v
 	end
-
 	return v
 end
 
@@ -179,13 +178,14 @@ end
 
 local header_tmp = {}
 
+--modify response -> proto
 local function gen_response(self, response, session)
 	return function(args, ud)
 		header_tmp.type = nil
 		header_tmp.session = session
 		header_tmp.ud = ud
 		local header = core.encode(self.__package, header_tmp)
-		if response then
+		if response and args then
 			local content = core.encode(response, args)
 			return core.pack(header .. content)
 		else
@@ -193,62 +193,6 @@ local function gen_response(self, response, session)
 		end
 	end
 end
---[[
-function host:dispatch(...)
-	local bin = core.unpack(...)
-	header_tmp.type = nil
-	header_tmp.session = nil
-	header_tmp.ud = nil
-	local header, size = core.decode(self.__package, bin, header_tmp)
-	local content = bin:sub(size + 1)
-	if header.type then
-		-- request
-		local proto = queryproto(self.__proto, header.type)
-		local result
-		if proto.request then
-			result = core.decode(proto.request, content)
-		end
-		if header_tmp.session then
-			return "REQUEST", proto.name, result, gen_response(self, proto.response, header_tmp.session), header.ud
-		else
-			return "REQUEST", proto.name, result, nil, header.ud
-		end
-	else
-		-- response
-		local session = assert(header_tmp.session, "session not found")
-		local response = assert(self.__session[session], "Unknown session")
-		self.__session[session] = nil
-		if response == true then
-			return "RESPONSE", session, nil, header.ud
-		else
-			local result = core.decode(response, content)
-			return "RESPONSE", session, result, header.ud
-		end
-	end
-end
-]]
-
-function host:attach(sp)
-	return function(name, args, session, ud)
-		local proto = queryproto(sp, name)
-		header_tmp.type = proto.tag
-		header_tmp.session = session
-		header_tmp.ud = ud
-		local header = core.encode(self.__package, header_tmp)
-
-		if session then
-			self.__session[session] = proto.response or true
-		end
-
-		if proto.request then
-			local content = core.encode(proto.request, args)
-			return core.pack(header ..  content)
-		else
-			return core.pack(header)
-		end
-	end
-end
-
 
 function host:dispatch(...)
 	local bin = core.unpack(...)
@@ -268,18 +212,20 @@ function host:dispatch(...)
 		else
 			return "REQUEST", proto.name, result, nil, header.ud
 		end
-	elseif header.type == nil and header.session ~= nil then
+	elseif header.type == nil and header.session ~= nil then --c2s response
+		-- response
 		local session = assert(header_tmp.session, "session not found")
 		local protoname = assert(self.__session[session], "Unknown session")
+		print("protoname=", protoname, "session=", session)
 		local proto = assert(queryproto(self.__proto, protoname), "Unknown proto")
 		self.__session[session] = nil
 		if proto.response then
-			local result = core.decode(response, content)
+			local result = core.decode(proto.response, content)
 			return "RESPONSE", protoname, result, session, header.ud
 		else
 			return "RESPONSE", protoname, nil, session, header.ud
 		end
-	elseif header.type ~= nil and header.session == nil then
+	elseif header.type ~= nil and header.session == nil then --s2c response
 		local proto = queryproto(self.__proto, header.type)
 		if proto.response then
 			local result = core.decode(response, content)
@@ -292,6 +238,26 @@ function host:dispatch(...)
 	end
 end
 
+function host:attach(sp)
+	return function(name, args, session, ud)
+		local proto = queryproto(sp, name)
+		header_tmp.type = proto.tag
+		header_tmp.session = session
+		header_tmp.ud = ud
+		local header = core.encode(self.__package, header_tmp)
+
+		if session then
+			self.__session[session] = proto.name
+		end
+
+		if proto.request then
+			local content = core.encode(proto.request, args)
+			return core.pack(header ..  content)
+		else
+			return core.pack(header)
+		end
+	end
+end
 
 function host:response(name, args, session, ud)
 	local proto = queryproto(self.__proto, name)
@@ -299,13 +265,12 @@ function host:response(name, args, session, ud)
 	header_tmp.type = (session == nil) and proto.tag or nil
 	header_tmp.ud = ud
 	local header = core.encode(self.__package, header_tmp)
-	if proto.response then
+	if proto.response and args then
 		local content = core.encode(proto.response, args)
 		return core.pack(header .. content)
 	else
 		return core.pack(header)
 	end
 end
-
 
 return sproto
